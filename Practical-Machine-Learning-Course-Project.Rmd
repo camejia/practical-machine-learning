@@ -55,8 +55,8 @@ nsv <- nearZeroVar(trainpml, saveMetrics = TRUE)
 ```{r model-building-cross-validation-results}
 #Create train (75%) and test data (25%) partitions from training pml data
 library(caret)
-#Just for reducing model building time during submission, reducing %ge to 20
-inTrain <- createDataPartition(y=trainpml$classe, p=0.20, list=FALSE)
+#Just for reducing model building time during submission, reducing to 50%ge
+inTrain <- createDataPartition(y=trainpml$classe, p=0.50, list=FALSE)
 traindata <- trainpml[inTrain,]
 testdata <- trainpml[-inTrain,]
 
