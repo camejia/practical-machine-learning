@@ -1,0 +1,105 @@
+---
+title: "Practical Machine Learning - Course Project"
+output: html_document
+---
+
+##Summary:
+The goal of this project is to predict how well weight lifting activity is 
+done by using data from accelerometers on the belt, forearm, arm, and 
+dumbell of 6 participants. The data for this project is taken from the web 
+site http://groupware.les.inf.puc-rio.br/har.
+
+In the training data set, there are 19622 records and 160 columns. This same 
+dataset would be sub-devided into 75% training and 25% cross-validation data.
+
+The model would be build with the training data, cross-validated against the 
+validation data, and final outcomes will be calcualted by using the model for 
+the test data set which contains only 20 records.
+
+## Data loading and cleanup
+. Load the training and test data
+. Remove unnecessary columns (timestamp, NA values etc)
+
+```{r low-data-and-cleanup, echo=FALSE}
+#Load train and test pml data
+trainpml <- read.csv("pml-training.csv", na.strings=c("NA","","#DIV/0!"))
+testpml <- read.csv("pml-testing.csv", na.strings=c("NA","","#DIV/0!"))
+
+#Remove unncessary columns
+library(dplyr)
+trainpml <- select(trainpml, -contains("timestamp"))
+testpml <- select(testpml, -contains("timestamp"))
+trainpml <- select(trainpml, -contains("window"))
+testpml <- select(testpml, -contains("window"))
+trainpml <- select(trainpml, -user_name)
+testpml <- select(testpml, -user_name)
+
+#Remove columns with all NA values
+trainpml <- trainpml[,!(colSums(is.na(trainpml)) == 19622)]
+deltestcols <- as.character((colnames(testpml[, 
+                          (colSums(is.na(testpml)) == 20)])))
+testpml <- testpml[,!(colSums(is.na(testpml)) == 20)]
+testpml <- select(testpml, -problem_id) #Remove the problem_id column
+for(cl in deltestcols) { if (cl %in% colnames(trainpml)) 
+  { trainpml <- select(trainpml, -contains(cl))}}
+library(caret)
+nsv <- nearZeroVar(trainpml, saveMetrics = TRUE)
+#There are not any near zero covariance variables
+```
+
+## Build the predictor mode and validate
+. Partition the training data into 75% training and 25% testing data set
+. Build various models - lm, glm, rf, rpart
+. Observe the accuracy for different models.
+
+```{r model-building-cross-validation-results}
+#Create train (75%) and test data (25%) partitions from training pml data
+library(caret)
+#Just for reducing model building time during submission, reducing %ge to 20
+inTrain <- createDataPartition(y=trainpml$classe, p=0.20, list=FALSE)
+traindata <- trainpml[inTrain,]
+testdata <- trainpml[-inTrain,]
+
+#Build, validate and test against glm model
+set.seed(54525)
+#modFit <- train(classe ~ ., data=traindata, method="lm")
+#modFit <- train(classe ~ ., data=traindata, medthod="glm")
+#modFit <- train(classe ~ ., method="rpart", data=traindata)
+#modFit <- train(classe ~ ., method="rf", data=traindata,  
+#                trControl=trainControl(method="cv", number=3))
+
+modFit <- train(classe ~ total_accel_belt+total_accel_arm+total_accel_dumbbell+
+                  total_accel_forearm, method="rf", data=traindata, prox=TRUE, 
+                trControl=trainControl(method="cv", number=3))
+modFit$finalModel
+
+#cross validate the predictor model with test data
+predictions <- predict(modFit, newdata=testdata)
+confusionMatrix(predictions, testdata$classe)
+#library(rattle)
+#fancyRpartPlot(modFit$finalModel)
+
+#Evaluate the testpml records with new model
+predict(modFit, newdata=testpml)
+
+```
+
+##Out-of-Sample errors:
+Out-of-sample or generalizations errors are the errors on data set that was 
+not used to build the predictor model. Out-of-sample errors are always greater 
+than in-sample-errors because of overfitting of in-samples in the prediction
+model. So out-of-sample errors can be reduced by avoiding overfitting of model 
+with in-sample dataset.
+
+
+## Plots / Graphs:
+
+```{r plots-graphs, echo=FALSE}
+library(ggplot2)
+featurePlot(x=traindata[, c("total_accel_belt", "total_accel_arm", 
+                            "total_accel_dumbbell", "total_accel_forearm")],
+            y=traindata$classe,
+            plot="pairs")
+            
+```
+
